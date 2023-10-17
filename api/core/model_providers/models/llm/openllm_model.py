@@ -16,13 +16,11 @@ class OpenLLMModel(BaseLLM):
     def _init_client(self) -> Any:
         self.provider_model_kwargs = self._to_model_kwargs_input(self.model_rules, self.model_kwargs)
 
-        client = OpenLLM(
+        return OpenLLM(
             server_url=self.credentials.get('server_url'),
             callbacks=self.callbacks,
-            llm_kwargs=self.provider_model_kwargs
+            llm_kwargs=self.provider_model_kwargs,
         )
-
-        return client
 
     def _run(self, messages: List[PromptMessage],
              stop: Optional[List[str]] = None,
@@ -51,10 +49,7 @@ class OpenLLMModel(BaseLLM):
 
     def prompt_file_name(self, mode: str) -> str:
         if 'baichuan' in self.name.lower():
-            if mode == 'completion':
-                return 'baichuan_completion'
-            else:
-                return 'baichuan_chat'
+            return 'baichuan_completion' if mode == 'completion' else 'baichuan_chat'
         else:
             return super().prompt_file_name(mode)
 

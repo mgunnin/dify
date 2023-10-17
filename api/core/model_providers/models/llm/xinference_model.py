@@ -61,10 +61,7 @@ class XinferenceModel(BaseLLM):
 
     def prompt_file_name(self, mode: str) -> str:
         if 'baichuan' in self.name.lower():
-            if mode == 'completion':
-                return 'baichuan_completion'
-            else:
-                return 'baichuan_chat'
+            return 'baichuan_completion' if mode == 'completion' else 'baichuan_chat'
         else:
             return super().prompt_file_name(mode)
 

@@ -128,7 +128,7 @@ class BaseLLM(BaseProviderModel):
 
         if not moderation_result:
             kwargs['fake_response'] = "I apologize for any confusion, " \
-                                      "but I'm an AI assistant to be helpful, harmless, and honest."
+                                          "but I'm an AI assistant to be helpful, harmless, and honest."
 
         if self.deduct_quota:
             self.model_provider.check_quota_over_limit()
@@ -152,7 +152,9 @@ class BaseLLM(BaseProviderModel):
                 result = self._run(
                     messages=messages,
                     stop=stop,
-                    callbacks=callbacks if not (self.streaming and not self.support_streaming) else None,
+                    callbacks=callbacks
+                    if not self.streaming or self.support_streaming
+                    else None,
                     **kwargs
                 )
             except Exception as ex:
@@ -232,7 +234,7 @@ class BaseLLM(BaseProviderModel):
         :param message_type:
         :return:
         """
-        if message_type == MessageType.USER or message_type == MessageType.SYSTEM:
+        if message_type in [MessageType.USER, MessageType.SYSTEM]:
             unit_price = self.price_config['prompt']
         else:
             unit_price = self.price_config['completion']
@@ -250,7 +252,7 @@ class BaseLLM(BaseProviderModel):
         :param message_type:
         :return: decimal.Decimal('0.0001')
         """
-        if message_type == MessageType.USER or message_type == MessageType.SYSTEM:
+        if message_type in [MessageType.USER, MessageType.SYSTEM]:
             unit_price = self.price_config['prompt']
         else:
             unit_price = self.price_config['completion']
@@ -265,11 +267,7 @@ class BaseLLM(BaseProviderModel):
         :param message_type:
         :return: decimal.Decimal('0.000001')
         """
-        if message_type == MessageType.USER or message_type == MessageType.SYSTEM:
-            price_unit = self.price_config['unit']
-        else:
-            price_unit = self.price_config['unit']
-
+        price_unit = self.price_config['unit']
         price_unit = price_unit.quantize(decimal.Decimal('0.000001'), rounding=decimal.ROUND_HALF_UP)
         logging.debug(f"price_unit={price_unit}")
         return price_unit
@@ -280,8 +278,7 @@ class BaseLLM(BaseProviderModel):
 
         :return: get from price config, default 'USD'
         """
-        currency = self.price_config['currency']
-        return currency
+        return self.price_config['currency']
 
     def get_model_kwargs(self):
         return self.model_kwargs
@@ -370,17 +367,9 @@ class BaseLLM(BaseProviderModel):
             prompt_inputs = {k: inputs[k] for k in prompt_template.variable_keys if k in inputs}
 
             if '#context#' in prompt:
-                if context:
-                    prompt_inputs['#context#'] = context
-                else:
-                    prompt_inputs['#context#'] = ''
-
+                prompt_inputs['#context#'] = context if context else ''
             if '#query#' in prompt:
-                if query:
-                    prompt_inputs['#query#'] = query
-                else:
-                    prompt_inputs['#query#'] = ''
-
+                prompt_inputs['#query#'] = query if query else ''
             if '#histories#' in prompt:
                 if memory and app_mode == 'chat' and model_mode == ModelMode.COMPLETION.value:
                     memory.human_prefix = conversation_histories_role['user_prefix']
@@ -410,10 +399,7 @@ class BaseLLM(BaseProviderModel):
         return prompt_messages
 
     def prompt_file_name(self, mode: str) -> str:
-        if mode == 'completion':
-            return 'common_completion'
-        else:
-            return 'common_chat'
+        return 'common_completion' if mode == 'completion' else 'common_chat'
 
     def _get_prompt_and_stop(self, prompt_rules: dict, pre_prompt: str, inputs: dict,
                              query: str,
@@ -441,7 +427,7 @@ class BaseLLM(BaseProviderModel):
             elif order == 'pre_prompt':
                 prompt += pre_prompt_content
 
-        query_prompt = prompt_rules['query_prompt'] if 'query_prompt' in prompt_rules else '{{query}}'
+        query_prompt = prompt_rules.get('query_prompt', '{{query}}')
 
         if memory and 'histories_prompt' in prompt_rules:
             # append chat histories
@@ -460,8 +446,8 @@ class BaseLLM(BaseProviderModel):
             else:
                 rest_tokens = 2000
 
-            memory.human_prefix = prompt_rules['human_prefix'] if 'human_prefix' in prompt_rules else 'Human'
-            memory.ai_prefix = prompt_rules['assistant_prefix'] if 'assistant_prefix' in prompt_rules else 'Assistant'
+            memory.human_prefix = prompt_rules.get('human_prefix', 'Human')
+            memory.ai_prefix = prompt_rules.get('assistant_prefix', 'Assistant')
 
             histories = self._get_history_messages_from_memory(memory, rest_tokens)
             prompt_template = PromptTemplateParser(template=prompt_rules['histories_prompt'])
@@ -471,11 +457,11 @@ class BaseLLM(BaseProviderModel):
             for order in prompt_rules['system_prompt_orders']:
                 if order == 'context_prompt':
                     prompt += context_prompt_content
-                elif order == 'pre_prompt':
-                    prompt += (pre_prompt_content + '\n') if pre_prompt_content else ''
                 elif order == 'histories_prompt':
                     prompt += histories_prompt_content
 
+                elif order == 'pre_prompt':
+                    prompt += (pre_prompt_content + '\n') if pre_prompt_content else ''
         prompt_template = PromptTemplateParser(template=query_prompt)
         query_prompt_content = prompt_template.format({'query': query})
 
@@ -524,15 +510,8 @@ class BaseLLM(BaseProviderModel):
             model_mode = self.model_mode
 
         if model_mode == ModelMode.COMPLETION:
-            if len(messages) == 0:
-                return ''
-
-            return messages[0].content
-        else:
-            if len(messages) == 0:
-                return []
-
-            return to_lc_messages(messages)
+            return '' if not messages else messages[0].content
+        return [] if not messages else to_lc_messages(messages)
 
     def _to_model_kwargs_input(self, model_rules: ModelKwargsRules, model_kwargs: ModelKwargs) -> dict:
         """

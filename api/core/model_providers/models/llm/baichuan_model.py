@@ -38,10 +38,7 @@ class BaichuanModel(BaseLLM):
         return self._client.generate([prompts], stop, callbacks)
 
     def prompt_file_name(self, mode: str) -> str:
-        if mode == 'completion':
-            return 'baichuan_completion'
-        else:
-            return 'baichuan_chat'
+        return 'baichuan_completion' if mode == 'completion' else 'baichuan_chat'
 
     def get_num_tokens(self, messages: List[PromptMessage]) -> int:
         """
